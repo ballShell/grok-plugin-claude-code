@@ -1,6 +1,7 @@
 ---
 name: grok-prompting
-description: How to shape a good prompt before delegating to Grok via the grok-rescue subagent or /grok-cc:rescue. Use when tightening a vague user request into a crisp Grok task. Covers stating the goal, constraints, acceptance criteria, and scope so a one-shot headless Grok run succeeds.
+description: Internal guidance for shaping a crisp Grok task prompt before the grok-rescue subagent forwards it. Covers stating the goal, constraints, acceptance criteria, and scope so a one-shot headless Grok run succeeds.
+user-invocable: false
 ---
 
 # Grok prompting
@@ -28,15 +29,15 @@ yourself.
   description. Paste the actual error, not a paraphrase.
 - State the *outcome*, not a step-by-step procedure — let Grok plan the steps.
 - One task per run. Bundle only tightly-related changes.
-- Pick the mode deliberately: write-capable (default) to make changes,
-  `--read` for review/diagnosis/research with no edits.
-- Reach for `--effort high` on genuinely hard problems; leave it default
-  otherwise. Use `--check` when correctness matters more than latency.
+- Pick the mode deliberately: `--write` to make changes, no `--write` for
+  review/diagnosis/research with no edits.
+- Leave `--effort` and `--model` unset unless the user asked for them; the
+  default model comes from `~/.grok/config.toml`.
 
 ## Anti-patterns
 
 - Don't forward a one-word ask ("fix it") — add the goal and acceptance check.
-- Don't include routing flags (`--read`, `--effort`, …) inside the task text;
+- Don't include routing flags (`--write`, `--effort`, …) inside the task text;
   they are controls, not instructions for Grok.
 - Don't ask Grok to do exploratory work the main thread should just do itself —
   delegate substantial, bounded tasks, not trivial lookups.

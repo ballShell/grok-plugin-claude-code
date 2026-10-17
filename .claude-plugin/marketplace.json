@@ -1,21 +1,21 @@
 {
   "name": "grok-plugin-claude-code",
   "owner": {
-    "name": "Zach Dunn"
+    "name": "ballShell"
   },
   "metadata": {
-    "description": "A lightweight Grok plugin for Claude Code — delegate coding and review tasks to the Grok CLI.",
-    "version": "0.2.0"
+    "description": "Grok plugin for Claude Code: delegate tasks and run code reviews with the Grok CLI.",
+    "version": "1.0.0"
   },
   "plugins": [
     {
-      "name": "grok-cc",
-      "description": "Use Grok from Claude Code to delegate coding, debugging, and review tasks.",
-      "version": "0.2.0",
+      "name": "grok",
+      "description": "Use the Grok CLI from Claude Code to review code or delegate tasks.",
+      "version": "1.0.0",
       "author": {
-        "name": "Zach Dunn"
+        "name": "ballShell"
       },
-      "source": "./plugins/grok-cc"
+      "source": "./plugins/grok"
     }
   ]
 }

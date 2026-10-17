@@ -1,0 +1,14 @@
+{
+  "$schema": "https://anthropic.com/claude-code/plugin.schema.json",
+  "name": "grok",
+  "displayName": "Grok",
+  "version": "1.0.0",
+  "description": "Use the Grok CLI from Claude Code to review code or delegate tasks, with models and API endpoints from ~/.grok/config.toml.",
+  "author": {
+    "name": "ballShell"
+  },
+  "homepage": "https://github.com/ballShell/grok-plugin-claude-code",
+  "repository": "https://github.com/ballShell/grok-plugin-claude-code",
+  "license": "MIT",
+  "keywords": ["grok", "xai", "code-review", "delegation", "subagent"]
+}

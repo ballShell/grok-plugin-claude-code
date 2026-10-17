@@ -1,93 +1,140 @@
 # grok-plugin-claude-code
 
-A lightweight [Claude Code](https://claude.com/claude-code) plugin that lets you
-delegate coding, debugging, and review tasks to the [Grok CLI](https://grok.com)
-— spawn a `grok-rescue` subagent or run `/grok-cc:rescue <task>` and Grok works the
-problem as a parallel agent.
+A [Claude Code](https://claude.com/claude-code) plugin that brings the
+[Grok CLI](https://x.ai/cli) into Claude Code the same way OpenAI's
+[`codex` plugin](https://github.com/openai/codex-plugin-cc) brings Codex: code
+reviews, adversarial reviews, delegated rescue tasks, tracked background jobs,
+and an optional stop-time review gate.
 
-> This is essentially a simple, unofficial reimplementation of OpenAI's
-> [`codex-plugin-cc`](https://github.com/openai/codex-plugin-cc) — same shape
-> (a thin forwarder subagent + slash commands + a companion runtime), pointed at
-> the Grok CLI instead of Codex. It is intentionally leaner: it wraps Grok's
-> one-shot headless mode rather than a long-running app-server, so there is no
-> tracked-job registry / status / result / cancel surface.
-
-## What you get
-
-| Component | What it does |
-| --- | --- |
-| `grok-rescue` subagent | Thin forwarder. Hand it a substantial task (via the Agent tool / `@grok-rescue`) and it delegates to Grok. |
-| `/grok-cc:rescue <task>` | One-shot delegation with optional routing flags. |
-| `/grok-cc:setup` | Verifies the Grok CLI is installed and signed in. |
-| `grok-cli-runtime` skill | Reference for how the companion drives Grok. |
-| `grok-companion.mjs` | The runtime that wraps `grok -p --output-format json`. |
+Grok runs with the models, API endpoints and keys you already configured in
+`~/.grok/config.toml`, so a custom gateway or BYOK setup works without
+`grok login`.
 
 ## Requirements
 
-- **Grok CLI access.** This plugin drives xAI's Grok CLI ("grok build"), which
-  requires access — see [x.ai/cli](https://x.ai/cli). Without it the plugin has
-  nothing to delegate to.
-- The `grok` CLI on your `PATH` (or at `~/.grok/bin/grok`; override with the
-  `GROK_BIN` env var).
-- Signed in: `grok login`.
-- Node (used to run the companion script).
+- The `grok` CLI on your `PATH`, at `~/.grok/bin/grok`, or pointed to by
+  `GROK_BIN`.
+- Credentials for the model Grok will use, from any of:
+  - `api_key` or `env_key` in that model's `[model."<id>"]` table in
+    `~/.grok/config.toml`;
+  - a `grok login` session;
+  - the `XAI_API_KEY` environment variable.
+- Node.js 18 or later.
 
-> Delegation sends your prompt and any code Grok reads to xAI's backend — the
-> same external-service caveat as any cloud coding agent.
+Delegated runs send your prompt and any code Grok reads to the endpoint
+configured for the model — xAI, or your own gateway.
 
 ## Install
 
-From within Claude Code:
-
 ```text
-/plugin marketplace add zachdunn/grok-plugin-claude-code
-/plugin install grok-cc@grok-plugin-claude-code
+/plugin install grok --marketplace ballShell/grok-plugin-claude-code
 ```
 
-Or with the CLI:
+Or step by step, from Claude Code or a shell:
 
 ```bash
-claude plugin marketplace add zachdunn/grok-plugin-claude-code
-claude plugin install grok-cc@grok-plugin-claude-code
+claude plugin marketplace add ballShell/grok-plugin-claude-code
+claude plugin install grok@grok-plugin-claude-code
 ```
 
-Then `/grok-cc:setup` to confirm Grok is ready.
+Then run `/grok:setup` to confirm Grok is ready.
 
-## Usage
+## Commands
 
-```text
-/grok-cc:rescue fix the failing auth test in apps/api
-/grok-cc:rescue --read why is the diorama pan jittery on tilt?
-/grok-cc:rescue --background --effort high refactor the camera rig
-```
+| Command | What it does |
+| --- | --- |
+| `/grok:setup` | Checks the Grok binary, `~/.grok/config.toml` (default model, configured models, endpoints, credential source) and toggles the review gate with `--enable-review-gate` / `--disable-review-gate`. |
+| `/grok:review` | Read-only review of the working tree, or of the branch with `--base <ref>`. Offers to run in the background for anything non-trivial. |
+| `/grok:adversarial-review` | Review that challenges the design and assumptions, with optional focus text. |
+| `/grok:rescue <task>` | Hands a task to the `grok:grok-rescue` subagent. Write-capable by default. Asks whether to continue the previous Grok thread when there is one. |
+| `/grok:status [job-id]` | Active and recent Grok jobs for this repository. |
+| `/grok:result [job-id]` | Stored output of a finished job. |
+| `/grok:cancel [job-id]` | Stops a running job. |
 
-Routing flags (stripped before the task text reaches Grok):
+Claude can also call the `grok:grok-rescue` subagent on its own when a task
+is worth handing to Grok.
+
+### Rescue flags
 
 | Flag | Effect |
 | --- | --- |
-| _(default)_ | write-capable run — Grok may edit files |
-| `--read` | read-only (plan mode); reads and reasons, no edits |
-| `--background` | spawn detached; returns a pid + log path |
-| `--effort <level>` | `low \| medium \| high \| xhigh \| max` |
-| `--model <id>` | pin a specific Grok model |
-| `--cwd <path>` | working directory (default: current) |
-| `--best-of-n <N>` | run N ways in parallel, keep the best |
-| `--check` | append a self-verification pass |
-| `--worktree [name]` | run inside a fresh git worktree |
-| `--resume` | continue the most recent Grok session here |
+| `--background` / `--wait` | Run the subagent in the background or the foreground. |
+| `--resume` / `--fresh` | Continue the latest Grok thread from this session, or start a new one. |
+| `--model <id>` | Use a model by its `[model.<id>]` id from `~/.grok/config.toml`, or any id listed by `grok models`. Defaults to `[models].default`. |
+| `--effort <level>` | Grok reasoning effort. Some gateway models have none. |
 
-## Repo layout
+Read-only runs use Grok's plan mode. Write runs auto-approve Grok's tools.
+
+### Examples
 
 ```text
-.claude-plugin/marketplace.json   # marketplace manifest
-plugins/grok-cc/                     # the plugin itself
+/grok:setup
+/grok:review --base main
+/grok:adversarial-review --background focus on the retry logic
+/grok:rescue fix the failing auth test in apps/api
+/grok:rescue --model grok-4.7 --background refactor the camera rig
+/grok:rescue --resume apply the top fix
+```
+
+## Using `~/.grok/config.toml`
+
+The plugin reads `$GROK_HOME/config.toml` (default `~/.grok/config.toml`), the
+same file the Grok CLI uses. For example:
+
+```toml
+[models]
+default = "grok-4.7"
+
+[model."grok-4.7"]
+model = "grok-4.7"
+base_url = "https://your-gateway.example/v1"
+name = "AI Gateway"
+api_key = "sk-..."            # or: env_key = "MY_GATEWAY_KEY"
+api_backend = "responses"
+```
+
+- Runs without `--model` use `[models].default`.
+- `--model <id>` selects another `[model.<id>]` table.
+- A model counts as authenticated when its table has `api_key`, an `env_key`
+  whose variable is set, or `auth_provider`. A model with no table of its own
+  needs a `grok login` session or `XAI_API_KEY`.
+- `/grok:setup` shows each model's endpoint and credential source. It never
+  prints key values.
+- A project-level `.grok/config.toml` overrides the user config inside that
+  repository; `/grok:setup` reports it when present.
+
+## Review gate
+
+`/grok:setup --enable-review-gate` turns on a Stop hook for the current
+repository. When a Claude turn ends with uncommitted changes, Grok reviews that
+turn's edits and can block the stop with a reason Claude must address. It runs
+a real Grok call on every such turn, so it is off by default.
+
+## How it works
+
+`plugins/grok/scripts/grok-companion.mjs` drives Grok's headless mode
+(`grok --prompt-file <file> --output-format json`). Every task and review is
+recorded as a job under `${CLAUDE_PLUGIN_DATA}`. Background tasks run in a
+detached worker. A SessionStart hook ties jobs to the Claude session, and a
+SessionEnd hook stops that session's running jobs.
+
+```text
+.claude-plugin/marketplace.json
+plugins/grok/
   .claude-plugin/plugin.json
   agents/grok-rescue.md
-  commands/{setup,rescue}.md
-  skills/grok-cli-runtime/SKILL.md
+  commands/{setup,review,adversarial-review,rescue,status,result,cancel}.md
+  hooks/hooks.json
+  prompts/{review,adversarial-review,stop-review-gate}.md
   scripts/grok-companion.mjs
+  scripts/session-lifecycle-hook.mjs
+  scripts/stop-review-gate-hook.mjs
+  scripts/lib/{args,git,grok,grok-config,jobs,render,state}.mjs
+  skills/{grok-cli-runtime,grok-prompting,grok-result-handling}/SKILL.md
 ```
 
 ## License
 
-[MIT](./LICENSE). Not affiliated with xAI or OpenAI.
+[MIT](./LICENSE). Forked from
+[zachdunn/grok-plugin-claude-code](https://github.com/zachdunn/grok-plugin-claude-code).
+Not affiliated with xAI, OpenAI, or Anthropic.
